@@ -233,6 +233,32 @@ class Pixault:
         self._check_response(response)
         return response.json()
 
+    # ── EPS Operations ──
+
+    def list_derived(self, project: str, image_id: str) -> list[dict[str, Any]]:
+        """List derived assets (rasterized PNGs, SVGs, splits) for an EPS parent."""
+        response = self._client.get(f"/api/{project}/{image_id}/derived")
+        self._check_response(response)
+        return response.json()
+
+    def get_processing_status(self, project: str, image_id: str) -> dict[str, Any] | None:
+        """Get the processing status for an EPS file. Returns None if no job found."""
+        response = self._client.get(f"/api/{project}/{image_id}/processing-status")
+        if response.status_code == 404:
+            return None
+        self._check_response(response)
+        return response.json()
+
+    def split_designs(self, project: str, image_id: str) -> None:
+        """Trigger auto-split to extract individual designs from an EPS file."""
+        response = self._client.post(f"/api/{project}/{image_id}/split")
+        self._check_response(response)
+
+    def extract_svg(self, project: str, image_id: str) -> None:
+        """Trigger vector SVG extraction from an EPS file."""
+        response = self._client.post(f"/api/{project}/{image_id}/extract-svg")
+        self._check_response(response)
+
     # ── Internal ──
 
     def _build_headers(self) -> dict[str, str]:

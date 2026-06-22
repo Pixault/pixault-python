@@ -29,8 +29,7 @@ class Pixault:
         px = Pixault(
             base_url="https://img.pixault.io",
             default_project="barber",
-            client_id="px_cl_a1b2c3d4",
-            client_secret="pk_...",
+            api_key="pk_your_secret_key",
         )
 
         # Generate URLs
@@ -47,15 +46,11 @@ class Pixault:
         self,
         base_url: str,
         default_project: str | None = None,
-        client_id: str | None = None,
-        client_secret: str | None = None,
         api_key: str | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._default_project = default_project
-        self._client_id = client_id
-        self._client_secret = client_secret
-        self._api_key = api_key  # Legacy fallback
+        self._api_key = api_key
         self._client = httpx.Client(
             base_url=self._base_url,
             headers=self._build_headers(),
@@ -263,12 +258,7 @@ class Pixault:
 
     def _build_headers(self) -> dict[str, str]:
         headers: dict[str, str] = {}
-        if self._client_id:
-            headers["X-Client-Id"] = self._client_id
-        if self._client_secret:
-            headers["X-Client-Secret"] = self._client_secret
-        elif self._api_key:
-            # Legacy fallback
+        if self._api_key:
             headers["X-Api-Key"] = self._api_key
         return headers
 

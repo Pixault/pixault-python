@@ -1,0 +1,71 @@
+name: Publish to PyPI
+
+# Publishes pixault to PyPI via trusted publishing (OIDC) -- the same model the
+# .NET SDKs use, so no long-lived registry token is stored anywhere.
+#
+# Trigger: push a version tag (v1.2.3 or v1.2.3rc1). pyproject.toml remains the
+# source of truth for the version; the tag must agree with it, and the job fails
+# loudly if they drift rather than publishing something nobody asked for.
+#
+# ONE-TIME SETUP on pypi.org: Account -> Publishing -> Add a pending publisher,
+# owner Pixault, repository pixault-python, workflow publish.yml. PyPI supports
+# PENDING publishers, so this can be configured before the project exists -- the
+# first successful run creates it. Until it is configured the publish step fails
+# with an auth error; nothing else here needs changing.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip build
+
+      - name: Verify tag matches pyproject.toml
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag v$TAG does not match pyproject.toml version $PKG"
+            exit 1
+          fi
+          echo "publishing version $PKG"
+
+      - name: Import check
+        run: |
+          set -euo pipefail
+          python -m pip install .
+          python -c "import pixault; print('imported pixault OK')"
+
+      - name: Build
+        run: python -m build
+
+      # Guard against uploading an empty or malformed artifact set.
+      - name: Verify build output
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -l dist/
+          test -n "$(find dist -name '*.whl'    -size +1k -print -quit)" || { echo "::error::no wheel built"; exit 1; }
+          test -n "$(find dist -name '*.tar.gz' -size +1k -print -quit)" || { echo "::error::no sdist built"; exit 1; }
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
